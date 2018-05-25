@@ -1,5 +1,13 @@
-NAME: Sanketh Hegde, Raymond Kwan
-EMAIL: shegde20@ucla.edu, raykwan@ucla.edu
-ID: 604788993, 304783893
+NAME: Sanketh Hegde,Raymond Kwan
+EMAIL: shegde20@ucla.edu,raykwan@ucla.edu
+ID: 604788993,304783893
 
 
+Files:
+lab3a.c - C source file
+ext_fs.h - header file that contains description, struct types of ext2 file system
+Makefile
+
+References:
+Got information on how to interpret ext2 from 
+    http://cs.smith.edu/~nhowe/262/oldlabs/ext2.html
