@@ -17,6 +17,7 @@
 #include "ext2_fs.h" /* describes ext2 file system */
 
 struct ext2_super_block superblock;
+__u32 blockSize;
 
 int processArgs(int argc, char **argv) /* returns fd of file image */{
   char usage[28] = "Usage: ./lab3a fs_image";
@@ -38,7 +39,7 @@ int processArgs(int argc, char **argv) /* returns fd of file image */{
 
 void superblockSummary(int fd) {
   pread(fd, &superblock, sizeof(struct ext2_super_block), 1024);
-  __u32 blockSize = EXT2_MIN_BLOCK_SIZE << superblock.s_log_block_size;
+  blockSize = EXT2_MIN_BLOCK_SIZE << superblock.s_log_block_size;
 
   printf("SUPERBLOCK,%d,%d,%d,%d,%d,%d,%d\n",
     superblock.s_blocks_count,
@@ -50,10 +51,31 @@ void superblockSummary(int fd) {
     superblock.s_first_ino);
 }
 
+void freeBlockEntries(int fd) {
+  __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
+  struct ext2_group_desc group;
+
+  for (int i = 0; i < numGroups; i++) {
+    group = blockgroups[i];
+    __u32 bitmap = group.bg_block_bitmap;
+    int blocksPerGroup = i == numGroups - 1 ?  : (int)superblock.s_blocks_per_group;
+
+    int currBlock = 0;
+    while (currBlock < blocksPerGroup {
+      if (bitmap & 0x01) {
+        printf("BFREE,%d\n", currBlock);
+      }
+      bitmap = bitmap >> 1;
+      currBlock++;
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
 
   superblockSummary(fsfd);
+  freeBlockEntries(fsfd);
 
   close(fsfd);
   exit(0);
