@@ -14,7 +14,7 @@ lab3a: lab3a.c
 	$(CC) $(CFLAGS) lab3a.c -o $@
 
 dist:
-	tar -czf $(TARBALL) README $(SOURCES) Makefile
+	tar -czf $(TARBALL) README $(SOURCES) Makefile ext2_fs.h
 
 clean:
 	rm -f $(OBJECTS) $(TARBALL)
