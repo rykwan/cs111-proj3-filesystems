@@ -17,11 +17,8 @@
 #include "ext2_fs.h" /* describes ext2 file system */
 
 struct ext2_super_block superblock;
-<<<<<<< HEAD
 __u32 blockSize;
-=======
 struct ext2_group_desc* blockgroups = NULL;
->>>>>>> 77f74c48cabe8cef045067c529d1f0b3024851f3
 
 int processArgs(int argc, char **argv) /* returns fd of file image */{
   char usage[28] = "Usage: ./lab3a fs_image";
@@ -55,25 +52,6 @@ void superblockSummary(int fd) {
     superblock.s_first_ino);
 }
 
-void freeBlockEntries(int fd) {
-  __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
-  struct ext2_group_desc group;
-
-  for (int i = 0; i < numGroups; i++) {
-    group = blockgroups[i];
-    __u32 bitmap = group.bg_block_bitmap;
-    int blocksPerGroup = i == numGroups - 1 ?  : (int)superblock.s_blocks_per_group;
-
-    int currBlock = 0;
-    while (currBlock < blocksPerGroup {
-      if (bitmap & 0x01) {
-        printf("BFREE,%d\n", currBlock);
-      }
-      bitmap = bitmap >> 1;
-      currBlock++;
-    }
-  }
-
 void groupSummary(int fd) {
   const __u32 superblockSize = sizeof(struct ext2_super_block);
   __u32 bgtable_blockno = superblockSize / blockSize + 1;
@@ -103,12 +81,36 @@ void groupSummary(int fd) {
   }
 }
 
+void freeBlockEntries() {
+  __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
+  struct ext2_group_desc group;
+
+  for (unsigned int i = 0; i < numGroups; i++) {
+    group = blockgroups[i];
+    __u32 bitmap = group.bg_block_bitmap;
+    int blocks_in_group;
+    if ( i == numGroups - 1 )
+      blocks_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
+    else
+      blocks_in_group = superblock.s_blocks_per_group;
+
+    int currBlock = 0;
+    while (currBlock < blocks_in_group) {
+      if (bitmap & 0x01) {
+        printf("BFREE,%d\n", currBlock);
+      }
+      bitmap = bitmap >> 1;
+      currBlock++;
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
 
   superblockSummary(fsfd);
   groupSummary(fsfd);
-  freeBlockEntries(fsfd);
+  freeBlockEntries();
 
   if ( blockgroups != NULL )
     free(blockgroups);
