@@ -17,6 +17,7 @@
 #include "ext2_fs.h" /* describes ext2 file system */
 
 struct ext2_super_block superblock;
+struct ext2_group_desc* blockgroups = NULL;
 
 int processArgs(int argc, char **argv) /* returns fd of file image */{
   char usage[28] = "Usage: ./lab3a fs_image";
@@ -50,11 +51,45 @@ void superblockSummary(int fd) {
     superblock.s_first_ino);
 }
 
+void groupSummary(int fd) {
+  __u32 blockSize = EXT2_MIN_BLOCK_SIZE << superblock.s_log_block_size;
+  const __u32 superblockSize = sizeof(struct ext2_super_block);
+  __u32 bgtable_blockno = superblockSize / blockSize + 1;
+  const __u32 offset = bgtable_blockno * blockSize;
+  __u32 numgroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
+
+  unsigned int gdesc_size = sizeof(struct ext2_group_desc);
+  unsigned int i;
+  __u32 blocks_in_group = 0;
+  blockgroups = malloc(numgroups * gdesc_size); 
+  for ( i = 0; i < numgroups; i++ ) {
+    pread(fd, &blockgroups[i], gdesc_size, offset + i*gdesc_size);
+    if ( i == numgroups - 1 )
+      blocks_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
+    else 
+      blocks_in_group = superblock.s_blocks_per_group;
+    printf("GROUP,%d,%u,%u,%u,%u,%u,%u,%u\n",
+	   i,
+	   blocks_in_group,
+	   superblock.s_inodes_per_group,
+	   blockgroups[i].bg_free_blocks_count,
+	   blockgroups[i].bg_free_inodes_count,
+	   blockgroups[i].bg_block_bitmap,
+	   blockgroups[i].bg_inode_bitmap,
+	   blockgroups[i].bg_inode_table
+	   );
+  }
+
+}
+
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
 
   superblockSummary(fsfd);
+  groupSummary(fsfd);
 
+  if ( blockgroups != NULL )
+    free(blockgroups);
   close(fsfd);
   exit(0);
 }
