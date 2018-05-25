@@ -20,6 +20,9 @@ struct ext2_super_block superblock;
 __u32 blockSize;
 struct ext2_group_desc* blockgroups = NULL;
 
+#define BASE_OFFSET 1024  /* location of the super-block in the first group */
+#define BLOCK_OFFSET(block) (BASE_OFFSET + (block-1)*blockSize)
+
 int processArgs(int argc, char **argv) /* returns fd of file image */{
   char usage[28] = "Usage: ./lab3a fs_image";
   if ( argc > 2 ) {
@@ -81,27 +84,32 @@ void groupSummary(int fd) {
   }
 }
 
-void freeBlockEntries() {
+void freeBlockEntries(int fd) {
   __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
   struct ext2_group_desc group;
 
   for (unsigned int i = 0; i < numGroups; i++) {
     group = blockgroups[i];
-    __u32 bitmap = group.bg_block_bitmap;
+
     int blocks_in_group;
     if ( i == numGroups - 1 )
       blocks_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
     else
       blocks_in_group = superblock.s_blocks_per_group;
 
-    int currBlock = 0;
-    while (currBlock < blocks_in_group) {
-      if (bitmap & 0x01) {
+    __u32 bitmapAddress = group.bg_block_bitmap;
+    unsigned char * bitmap = malloc(blocks_in_group);
+    pread(fd, bitmap, blocks_in_group/8, BLOCK_OFFSET(bitmapAddress));
+
+    int currBlock = 1;
+    while (currBlock <= blocks_in_group) {
+      if (!(*bitmap & 0x01)) {
         printf("BFREE,%d\n", currBlock);
       }
-      bitmap = bitmap >> 1;
+      *bitmap = *bitmap >> 1;
       currBlock++;
     }
+    free(bitmap);
   }
 }
 
@@ -110,7 +118,7 @@ int main(int argc, char **argv) {
 
   superblockSummary(fsfd);
   groupSummary(fsfd);
-  freeBlockEntries();
+  freeBlockEntries(fsfd);
 
   if ( blockgroups != NULL )
     free(blockgroups);
