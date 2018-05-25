@@ -16,6 +16,8 @@
 
 #include "ext2_fs.h" /* describes ext2 file system */
 
+struct ext2_super_block superblock;
+
 int processArgs(int argc, char **argv) /* returns fd of file image */{
   char usage[28] = "Usage: ./lab3a fs_image";
   if ( argc > 2 ) {
@@ -34,9 +36,24 @@ int processArgs(int argc, char **argv) /* returns fd of file image */{
   return fd;
 }
 
+void superblockSummary(int fd) {
+  pread(fd, &superblock, sizeof(struct ext2_super_block), 1024);
+  __u32 blockSize = EXT2_MIN_BLOCK_SIZE << superblock.s_log_block_size;
+
+  printf("SUPERBLOCK,%d,%d,%d,%d,%d,%d,%d\n",
+    superblock.s_blocks_count,
+    superblock.s_inodes_count,
+    blockSize,
+    superblock.s_inode_size,
+    superblock.s_blocks_per_group,
+    superblock.s_inodes_per_group,
+    superblock.s_first_ino);
+}
 
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
+
+  superblockSummary(fsfd);
 
   close(fsfd);
   exit(0);
