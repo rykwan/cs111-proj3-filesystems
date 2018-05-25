@@ -88,7 +88,8 @@ void freeBlockEntries(int fd) {
   __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
   struct ext2_group_desc group;
 
-  for (unsigned int i = 0; i < numGroups; i++) {
+  unsigned int i;
+  for ( i = 0; i < numGroups; i++) {
     group = blockgroups[i];
 
     int blocks_in_group;
@@ -98,17 +99,21 @@ void freeBlockEntries(int fd) {
       blocks_in_group = superblock.s_blocks_per_group;
 
     __u32 bitmapAddress = group.bg_block_bitmap;
-    unsigned char * bitmap = malloc(blocks_in_group);
+    __u32 * bitmap = malloc(blocks_in_group + 32); // allocate another index (plus 32) just in case
     pread(fd, bitmap, blocks_in_group/8, BLOCK_OFFSET(bitmapAddress));
 
     int currBlock = 1;
+    int j= 0;
     while (currBlock <= blocks_in_group) {
-      if (!(*bitmap & 0x01)) {
+      if (!(bitmap[j] & 0x01)) {
         printf("BFREE,%d\n", currBlock);
       }
-      *bitmap = *bitmap >> 1;
+      bitmap[j] >>= 1;
+      if (currBlock % 32 == 0)
+	j++;
       currBlock++;
-    }
+    } 
+
     free(bitmap);
   }
 }
