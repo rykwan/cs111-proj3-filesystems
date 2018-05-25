@@ -58,7 +58,8 @@ void superblockSummary(int fd) {
 void groupSummary(int fd) {
   const __u32 superblockSize = sizeof(struct ext2_super_block);
   __u32 bgtable_blockno = superblockSize / blockSize + 1;
-  const __u32 offset = bgtable_blockno * blockSize;
+  //  const __u32 offset = bgtable_blockno * blockSize;
+  const __u32 offset = BLOCK_OFFSET(bgtable_blockno);
   __u32 numgroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
 
   unsigned int gdesc_size = sizeof(struct ext2_group_desc);
@@ -84,7 +85,9 @@ void groupSummary(int fd) {
   }
 }
 
-void freeBlockEntries(int fd) {
+#define BLOCK_ENTRIES 1
+#define INODE_ENTRIES 2
+void freeEntries(int fd, int entry) {
   __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
   struct ext2_group_desc group;
 
@@ -98,7 +101,7 @@ void freeBlockEntries(int fd) {
     else
       blocks_in_group = superblock.s_blocks_per_group;
 
-    __u32 bitmapAddress = group.bg_block_bitmap;
+    __u32 bitmapAddress = (entry == BLOCK_ENTRIES) ? group.bg_block_bitmap : group.bg_inode_bitmap;
     __u32 * bitmap = malloc(blocks_in_group + 32); // allocate another index (plus 32) just in case
     pread(fd, bitmap, blocks_in_group/8, BLOCK_OFFSET(bitmapAddress));
 
@@ -106,7 +109,10 @@ void freeBlockEntries(int fd) {
     int j= 0;
     while (currBlock <= blocks_in_group) {
       if (!(bitmap[j] & 0x01)) {
-        printf("BFREE,%d\n", currBlock);
+	if ( entry == BLOCK_ENTRIES )
+	  printf("BFREE,%d\n", currBlock);
+	else 
+	  printf("IFREE,%d\n", currBlock);
       }
       bitmap[j] >>= 1;
       if (currBlock % 32 == 0)
@@ -118,12 +124,14 @@ void freeBlockEntries(int fd) {
   }
 }
 
+
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
 
   superblockSummary(fsfd);
   groupSummary(fsfd);
-  freeBlockEntries(fsfd);
+  freeEntries(fsfd, BLOCK_ENTRIES);
+  freeEntries(fsfd, INODE_ENTRIES);
 
   if ( blockgroups != NULL )
     free(blockgroups);
