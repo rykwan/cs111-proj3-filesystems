@@ -57,7 +57,7 @@ void superblockSummary(int fd) {
 
 void groupSummary(int fd) {
   const __u32 superblockSize = sizeof(struct ext2_super_block);
-  __u32 bgtable_blockno = superblockSize / blockSize + 1;
+  __u32 bgtable_blockno = (1023+superblockSize) / blockSize + 1;
   //  const __u32 offset = bgtable_blockno * blockSize;
   const __u32 offset = BLOCK_OFFSET(bgtable_blockno);
   __u32 numgroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
@@ -87,7 +87,7 @@ void groupSummary(int fd) {
 
 #define BLOCK_ENTRIES 1
 #define INODE_ENTRIES 2
-void freeEntries(int fd, int entry) {
+void printFreeEntries(int fd, int entry) {
   __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
   struct ext2_group_desc group;
 
@@ -102,7 +102,7 @@ void freeEntries(int fd, int entry) {
       blocks_in_group = superblock.s_blocks_per_group;
 
     __u32 bitmapAddress = (entry == BLOCK_ENTRIES) ? group.bg_block_bitmap : group.bg_inode_bitmap;
-    __u32 * bitmap = malloc(blocks_in_group + 32); // allocate another index (plus 32) just in case
+    __u32 * bitmap = malloc(blocks_in_group + 32 - (blocks_in_group % 32)); // allocate another index (plus 32) just in case
     pread(fd, bitmap, blocks_in_group/8, BLOCK_OFFSET(bitmapAddress));
 
     int currBlock = 1;
@@ -124,14 +124,57 @@ void freeEntries(int fd, int entry) {
   }
 }
 
+void direEntries(int fd) {
+  __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
+  struct ext2_group_desc* group;
+
+  unsigned int i;
+  for ( i = 0; i < numGroups; i++) {
+    group = &blockgroups[i];
+    
+    int blocks_in_group;
+    if ( i == numGroups - 1 )
+      blocks_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
+    else
+      blocks_in_group = superblock.s_blocks_per_group;
+
+    int j;
+    for ( j = 0; j < blocks_in_group; j++) {
+      struct ext2_inode inode;
+      int blockno = group->bg_inode_table;
+      pread(fd, &inode, sizeof(struct ext2_inode), BLOCK_OFFSET(blockno) + j * sizeof(struct ext2_inode));
+      if ( (inode.i_mode & 0x4000) == 0x4000 ){
+	unsigned char* currblock = malloc(blockSize);
+	pread(fd, currblock, blockSize, BLOCK_OFFSET(inode.i_block[0]));
+	__u32 nbytes = 0;
+	struct ext2_dir_entry *dentry = (struct ext2_dir_entry *) currblock;
+	if (dentry->inode != 0) {
+	  while (nbytes < 512){//  inode.i_size) { ///TODO: i_size
+	    char filename[EXT2_NAME_LEN + 1];
+	    memcpy(filename, dentry->name, dentry->name_len);
+	    filename[dentry->name_len] = '\0';
+	    printf("DIRENT,%d,",j+1);
+	    printf("%u,%u,%u,%u,'%s'\n",nbytes,dentry->inode, dentry->rec_len, dentry->name_len, filename);
+	    nbytes += dentry->rec_len;
+	    dentry = (void *) dentry + dentry->rec_len;
+	  }
+	}
+	free(currblock);
+	/** TODO: If the entries list takes more than one block, the program will crash***/
+      }
+    }
+  }
+}
+
 
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
 
   superblockSummary(fsfd);
   groupSummary(fsfd);
-  freeEntries(fsfd, BLOCK_ENTRIES);
-  freeEntries(fsfd, INODE_ENTRIES);
+  printFreeEntries(fsfd, BLOCK_ENTRIES);
+  printFreeEntries(fsfd, INODE_ENTRIES);
+  direEntries(fsfd);
 
   if ( blockgroups != NULL )
     free(blockgroups);
