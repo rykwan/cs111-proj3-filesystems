@@ -13,6 +13,7 @@
 #include <fcntl.h> /* open(2) */
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 #include "ext2_fs.h" /* describes ext2 file system */
 
@@ -111,14 +112,14 @@ void printFreeEntries(int fd, int entry) {
       if (!(bitmap[j] & 0x01)) {
 	if ( entry == BLOCK_ENTRIES )
 	  printf("BFREE,%d\n", currBlock);
-	else 
+	else
 	  printf("IFREE,%d\n", currBlock);
       }
       bitmap[j] >>= 1;
       if (currBlock % 32 == 0)
 	j++;
       currBlock++;
-    } 
+    }
 
     free(bitmap);
   }
@@ -131,7 +132,7 @@ void direEntries(int fd) {
   unsigned int i;
   for ( i = 0; i < numGroups; i++) {
     group = &blockgroups[i];
-    
+
     int blocks_in_group;
     if ( i == numGroups - 1 )
       blocks_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
@@ -166,6 +167,56 @@ void direEntries(int fd) {
   }
 }
 
+void inodeSummary(int fd) {
+  __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
+
+  for (__u32 g = 0; g < numGroups; g++) {
+    struct ext2_group_desc *group = &blockgroups[g];
+    for (__u32 i = 2; i < superblock.s_inodes_count; i++) {
+      struct ext2_inode *inode = NULL;
+      pread(fd, inode, sizeof(struct ext2_inode), BLOCK_OFFSET(group->bg_inode_table) + (i-1) * sizeof(struct ext2_inode));
+
+      // Determine file type
+      char ftype = '?';
+      if (inode->i_mode & 0x8000)
+        ftype = 'f';
+      else if (inode->i_mode & 0x4000)
+        ftype = 'd';
+      else if (inode->i_mode & 0xA000)
+        ftype = 's';
+
+      // Get low order 12 bits for mode
+      __u16 mode = inode->i_mode & 0xFFF;
+
+      // Convert time to human readable strings
+      char* changeTimeStr = NULL;
+      char* modTimeStr = NULL;
+      char* accessTimeStr = NULL;
+      time_t changeTime = (time_t)inode->i_ctime;
+      time_t modTime = (time_t)inode->i_mtime;
+      time_t accessTime = (time_t)inode->i_atime;
+      strftime(changeTimeStr, 100, "%D %T", gmtime(&changeTime));
+      strftime(modTimeStr, 100, "%D %T", gmtime(&modTime));
+      strftime(accessTimeStr, 100, "%D %T", gmtime(&accessTime));
+
+      if (inode->i_mode != 0 && inode->i_links_count != 0) {
+        printf("INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d\n",
+          i,
+          ftype,
+          mode,
+          inode->i_uid,
+          inode->i_gid,
+          inode->i_links_count,
+          changeTimeStr,
+          modTimeStr,
+          accessTimeStr,
+          inode->i_size,
+          inode->i_blocks);
+      }
+    }
+  }
+}
+
 
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
@@ -174,6 +225,7 @@ int main(int argc, char **argv) {
   groupSummary(fsfd);
   printFreeEntries(fsfd, BLOCK_ENTRIES);
   printFreeEntries(fsfd, INODE_ENTRIES);
+  inodeSummary(fsfd);
   direEntries(fsfd);
 
   if ( blockgroups != NULL )
