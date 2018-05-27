@@ -3,7 +3,7 @@
 #ID: 304783893, 604788993
 
 CC = gcc
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -g
 OBJECTS = lab3a
 SOURCES = lab3a.c
 TARBALL = lab3a-304783893.tar.gz
