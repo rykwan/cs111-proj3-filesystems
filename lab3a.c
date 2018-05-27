@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #include "ext2_fs.h" /* describes ext2 file system */
 
@@ -176,12 +177,12 @@ void inodeSummary(int fd) {
 
   for (__u32 g = 0; g < numGroups; g++) {
     struct ext2_group_desc *group = &blockgroups[g];
-    
+
     for (__u32 i = 2; i < superblock.s_inodes_count; i++) {
       struct ext2_inode inode;
       off_t offset = BLOCK_OFFSET(group->bg_inode_table) + (i-1) * sizeof(struct ext2_inode);
       pread(fd, &inode, sizeof(struct ext2_inode), offset);
-      
+
       // Determine file type
       char ftype = '?';
       if (S_ISREG(inode.i_mode))
@@ -224,13 +225,64 @@ void inodeSummary(int fd) {
 	    printf(",%d", inode.i_block[b]);
 	  }
 	}
-	
+
 	printf("\n");
       }
     }
   }
 }
 
+// currLevel indicates current level of indirection, goalLevel
+// indicates how many times you want to recurse. Assumes that blockid
+// points to an indirect block (that contains an array of pointers).
+void recursiveScan(__u32 blockid, __u32 inodenum, int currLevel, int goalLevel, int logicalOffset, int fd) {
+  if (currLevel-1 >= goalLevel)
+    return;
+
+  __u32 dataArr[blockSize/4];
+  pread(fd, &dataArr, blockSize, BLOCK_OFFSET(blockid));
+  for (__u32 i = 0; i < blockSize/4; i++) {
+    if (dataArr[i] != 0) {
+      printf("INDIRECT,%d,%d,%d,%d,%d\n",
+        inodenum,
+        currLevel,
+        logicalOffset,
+        blockid,
+        dataArr[i]);
+      logicalOffset++;
+      recursiveScan(dataArr[i], inodenum, currLevel+1, goalLevel, logicalOffset, fd);
+    }
+  }
+  return;
+}
+
+void indirectBlocks(int fd) {
+  __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
+
+  for (__u32 g = 0; g < numGroups; g++) {
+    struct ext2_group_desc *group = &blockgroups[g];
+
+    for (__u32 i = 2; i < superblock.s_inodes_count; i++) {
+      struct ext2_inode inode;
+      off_t offset = BLOCK_OFFSET(group->bg_inode_table) + (i-1) * sizeof(struct ext2_inode);
+      pread(fd, &inode, sizeof(struct ext2_inode), offset);
+
+      // Determine file type
+      char ftype = '?';
+      if (S_ISREG(inode.i_mode))
+        ftype = 'f';
+      else if (S_ISDIR(inode.i_mode))
+        ftype = 'd';
+
+      if (inode.i_block[12] != 0)
+        recursiveScan(inode.i_block[12], i, 1, 1, 12, fd);
+      if (inode.i_block[13] != 0)
+        recursiveScan(inode.i_block[13], i, 1, 2, 268, fd);
+      if (inode.i_block[14] != 0)
+        recursiveScan(inode.i_block[14], i, 1, 3, 65804, fd);
+    }
+  }
+}
 
 int main(int argc, char **argv) {
   int fsfd = processArgs(argc, argv); // file system image
@@ -241,6 +293,7 @@ int main(int argc, char **argv) {
   printFreeEntries(fsfd, INODE_ENTRIES);
   inodeSummary(fsfd);
   direEntries(fsfd);
+  indirectBlocks(fsfd);
 
   if ( blockgroups != NULL )
     free(blockgroups);
