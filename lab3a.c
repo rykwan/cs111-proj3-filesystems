@@ -95,19 +95,27 @@ void printFreeEntries(int fd, int entry) {
   for ( i = 0; i < numGroups; i++) {
     group = blockgroups[i];
 
-    int blocks_in_group;
-    if ( i == numGroups - 1 )
-      blocks_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
-    else
-      blocks_in_group = superblock.s_blocks_per_group;
+    int entries_in_group;     
+    __u32 bitmapAddress;
+    if ( entry == BLOCK_ENTRIES ) {
+      bitmapAddress = group.bg_block_bitmap;
+      if ( i == numGroups - 1 )
+	entries_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
+      else
+	entries_in_group = superblock.s_blocks_per_group;
 
-    __u32 bitmapAddress = (entry == BLOCK_ENTRIES) ? group.bg_block_bitmap : group.bg_inode_bitmap;
-    __u32 * bitmap = malloc(blocks_in_group + 32 - (blocks_in_group % 32)); // allocate another index (plus 32) just in case
-    pread(fd, bitmap, blocks_in_group/8, BLOCK_OFFSET(bitmapAddress));
+    }
+    else {
+      entries_in_group = superblock.s_inodes_per_group; 
+      bitmapAddress = group.bg_inode_bitmap;
+    }
+
+    __u32 * bitmap = malloc(entries_in_group); // allocate another index (plus 32) just in case
+    pread(fd, bitmap, entries_in_group/8, BLOCK_OFFSET(bitmapAddress));
 
     int currBlock = 1;
     int j= 0;
-    while (currBlock <= blocks_in_group) {
+    while (currBlock <= entries_in_group) {
       if (!(bitmap[j] & 0x01)) {
 	if ( entry == BLOCK_ENTRIES )
 	  printf("BFREE,%d\n", currBlock);
@@ -132,14 +140,10 @@ void direEntries(int fd) {
   for ( i = 0; i < numGroups; i++) {
     group = &blockgroups[i];
     
-    int blocks_in_group;
-    if ( i == numGroups - 1 )
-      blocks_in_group = superblock.s_blocks_count % superblock.s_blocks_per_group;
-    else
-      blocks_in_group = superblock.s_blocks_per_group;
+    __u32 num_inodes = superblock.s_inodes_per_group;
 
-    int j;
-    for ( j = 0; j < blocks_in_group; j++) {
+    unsigned int j;
+    for ( j = 0; j < num_inodes; j++) {
       struct ext2_inode inode;
       int blockno = group->bg_inode_table;
       pread(fd, &inode, sizeof(struct ext2_inode), BLOCK_OFFSET(blockno) + j * sizeof(struct ext2_inode));
