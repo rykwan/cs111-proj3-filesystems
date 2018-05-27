@@ -206,7 +206,7 @@ void inodeSummary(int fd) {
       strftime(accessTimeStr, 100, "%D %T", gmtime(&accessTime));
 
       if (inode.i_mode != 0 && inode.i_links_count != 0) {
-        printf("INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d\n",
+        printf("INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d",
           i,
           ftype,
           mode,
@@ -218,6 +218,14 @@ void inodeSummary(int fd) {
           accessTimeStr,
           inode.i_size,
           inode.i_blocks);
+
+	if (ftype == 'f' || ftype == 'd') {
+	  for (int b = 0; b < 15; b++) {
+	    printf(",%d", inode.i_block[b]);
+	  }
+	}
+	
+	printf("\n");
       }
     }
   }
