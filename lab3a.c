@@ -134,6 +134,45 @@ void printFreeEntries(int fd, int entry) {
   }
 }
 
+void recursiveScanDir(__u32 blockid, __u32 inodenum, int currLevel, int goalLevel, struct ext2_inode* inode, int fd, __u32 size) {
+  if (currLevel-1 >= goalLevel)
+    return;
+
+  __u32 dataArr[blockSize/4];
+  pread(fd, &dataArr, blockSize, BLOCK_OFFSET(blockid));
+  __u32 i;
+  for (i = 0; i < blockSize/4; i++) {
+    if (dataArr[i] != 0) {
+      recursiveScanDir(dataArr[i], inodenum, currLevel+1, goalLevel, inode, fd, size);
+      struct ext2_dir_entry *entry;
+      unsigned char block[blockSize];
+
+      pread(fd, block, blockSize, BLOCK_OFFSET(dataArr[i]));
+      entry = (struct ext2_dir_entry *) block;
+
+      while((size < inode->i_size) && entry->file_type) {
+        char file_name[EXT2_NAME_LEN+1];
+        memcpy(file_name, entry->name, entry->name_len);
+        file_name[entry->name_len] = 0;
+
+        if (entry->inode != 0) {
+      	  printf("DIRENT,%d,%d,%d,%d,%d,'%s'\n",
+      		 inodenum,
+      		 size,
+      		 entry->inode,
+      		 entry->rec_len,
+      		 entry->name_len,
+      		 file_name);
+      	}
+
+        size += entry->rec_len;
+        entry = (void*) entry + entry->rec_len;
+      }
+    }
+  }
+  return;
+}
+
 void direEntries(int fd) {
   __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
   struct ext2_group_desc* group;
@@ -150,35 +189,47 @@ void direEntries(int fd) {
       int blockno = group->bg_inode_table;
       pread(fd, &inode, sizeof(struct ext2_inode), BLOCK_OFFSET(blockno) + j * sizeof(struct ext2_inode));
       if ( (inode.i_mode & 0x4000) == 0x4000 ){
-	unsigned char* currblock = malloc(blockSize);
-	pread(fd, currblock, blockSize, BLOCK_OFFSET(inode.i_block[0]));
-	__u32 x = 1;
-	__u32 nbytes = 0;
-	struct ext2_dir_entry *dentry = (struct ext2_dir_entry *) currblock;
-	if (dentry->inode != 0) {
-	  while (nbytes <  inode.i_size && dentry->inode != 0) {
-	    char filename[EXT2_NAME_LEN + 1];
-	    memcpy(filename, dentry->name, dentry->name_len);
-	    filename[dentry->name_len] = '\0';
-	    printf("DIRENT,%d,",j+1);
-	    printf("%u,%u,%u,%u,'%s'\n",nbytes,dentry->inode, dentry->rec_len, dentry->name_len, filename);
-	    nbytes += dentry->rec_len;
-	    dentry = (void *) dentry + dentry->rec_len;
-	    
-	    if (nbytes >= (blockSize*x) && nbytes != 0) {
-	      //currblock = malloc(blockSize);
-	      pread(fd, currblock, blockSize, BLOCK_OFFSET(inode.i_block[x]));
-	      dentry =  (struct ext2_dir_entry *) currblock;
-	      if ( dentry->inode == 0 )
-		break;
-	      x++;
-	      if ( x > inode.i_blocks/(2<<superblock.s_log_block_size) ) 
-		break;
-	    }
-	  }
-	}
-	free(currblock);
-	/** TODO: If the entries list takes more than one block, the program will crash***/
+        unsigned char block[blockSize];
+        struct ext2_dir_entry* entry;
+        unsigned int size = 0;
+
+        for (int k = 0; k < EXT2_NDIR_BLOCKS; k++) {
+          off_t offset = 1024 + (inode.i_block[k] - 1) * blockSize;
+          pread(fd, block, blockSize, offset);
+
+          entry = (struct ext2_dir_entry*) block;
+
+          while ((size < inode.i_size) && entry->file_type) {
+            char file_name[EXT2_NAME_LEN+1];
+            memcpy(file_name, entry->name, entry->name_len);
+            file_name[entry->name_len] = 0;
+
+            if (entry->inode != 0) {
+      	      printf("DIRENT,%d,%d,%d,%d,%d,'%s'\n",
+      		      j+1,
+      		      size,
+      		      entry->inode,
+      		      entry->rec_len,
+      		      entry->name_len,
+      		      file_name);
+            }
+
+            size += entry->rec_len;
+            entry = (void*) entry + entry->rec_len;
+          }
+        }
+
+        if (inode.i_block[EXT2_IND_BLOCK] != 0) {
+          recursiveScanDir(inode.i_block[EXT2_IND_BLOCK], j+1, 1, 1, &inode, fd, size);
+        }
+
+        if (inode.i_block[EXT2_DIND_BLOCK] != 0) {
+          recursiveScanDir(inode.i_block[EXT2_DIND_BLOCK], j+1, 1, 2, &inode, fd, size);
+        }
+
+        if (inode.i_block[EXT2_TIND_BLOCK] != 0) {
+          recursiveScanDir(inode.i_block[EXT2_TIND_BLOCK], j+1, 1, 3, &inode, fd, size);
+        }
       }
     }
   }
@@ -298,7 +349,7 @@ void indirectBlocks(int fd) {
       if (ftype != '?') {
 	int doubleInitOffset = (blockSize/4)+EXT2_IND_BLOCK;
 	int tripleInitOffset = (int)pow((blockSize/4),2)+doubleInitOffset;
-	
+
 	if (inode.i_block[12] != 0)
 	  recursiveScan(inode.i_block[12], i, 1, 1, EXT2_IND_BLOCK, fd);
 	if (inode.i_block[13] != 0)
