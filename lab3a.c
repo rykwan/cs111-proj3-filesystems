@@ -156,7 +156,7 @@ void direEntries(int fd) {
 	__u32 nbytes = 0;
 	struct ext2_dir_entry *dentry = (struct ext2_dir_entry *) currblock;
 	if (dentry->inode != 0) {
-	  while (nbytes <  inode.i_size) {
+	  while (nbytes <  inode.i_size && dentry->inode != 0) {
 	    char filename[EXT2_NAME_LEN + 1];
 	    memcpy(filename, dentry->name, dentry->name_len);
 	    filename[dentry->name_len] = '\0';
@@ -165,7 +165,7 @@ void direEntries(int fd) {
 	    nbytes += dentry->rec_len;
 	    dentry = (void *) dentry + dentry->rec_len;
 	    
-	    if (nbytes >= (512*x) && nbytes != 0) {
+	    if (nbytes >= (blockSize*x) && nbytes != 0) {
 	      //currblock = malloc(blockSize);
 	      pread(fd, currblock, blockSize, BLOCK_OFFSET(inode.i_block[x]));
 	      dentry =  (struct ext2_dir_entry *) currblock;
