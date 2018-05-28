@@ -175,10 +175,12 @@ void direEntries(int fd) {
 void inodeSummary(int fd) {
   __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
 
-  for (__u32 g = 0; g < numGroups; g++) {
+  __u32 g;
+  for ( g = 0; g < numGroups; g++) {
     struct ext2_group_desc *group = &blockgroups[g];
-
-    for (__u32 i = 2; i < superblock.s_inodes_count; i++) {
+    
+    __u32 i;
+    for ( i = 2; i < superblock.s_inodes_count; i++) {
       struct ext2_inode inode;
       off_t offset = BLOCK_OFFSET(group->bg_inode_table) + (i-1) * sizeof(struct ext2_inode);
       pread(fd, &inode, sizeof(struct ext2_inode), offset);
@@ -221,7 +223,8 @@ void inodeSummary(int fd) {
           inode.i_blocks);
 
 	if (ftype == 'f' || ftype == 'd') {
-	  for (int b = 0; b < 15; b++) {
+	  int b;
+	  for ( b = 0; b < 15; b++) {
 	    printf(",%d", inode.i_block[b]);
 	  }
 	}
@@ -241,11 +244,12 @@ void recursiveScan(__u32 blockid, __u32 inodenum, int currLevel, int goalLevel, 
 
   __u32 dataArr[blockSize/4];
   pread(fd, &dataArr, blockSize, BLOCK_OFFSET(blockid));
-  for (__u32 i = 0; i < blockSize/4; i++) {
+  __u32 i;
+  for (i = 0; i < blockSize/4; i++) {
     if (dataArr[i] != 0) {
       printf("INDIRECT,%d,%d,%d,%d,%d\n",
         inodenum,
-        currLevel,
+        (goalLevel-currLevel)+1,
         logicalOffset,
         blockid,
         dataArr[i]);
@@ -259,10 +263,12 @@ void recursiveScan(__u32 blockid, __u32 inodenum, int currLevel, int goalLevel, 
 void indirectBlocks(int fd) {
   __u32 numGroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
 
-  for (__u32 g = 0; g < numGroups; g++) {
+  __u32 g;
+  for ( g = 0; g < numGroups; g++) {
     struct ext2_group_desc *group = &blockgroups[g];
 
-    for (__u32 i = 2; i < superblock.s_inodes_count; i++) {
+    __u32 i;
+    for ( i = 2; i < superblock.s_inodes_count; i++) {
       struct ext2_inode inode;
       off_t offset = BLOCK_OFFSET(group->bg_inode_table) + (i-1) * sizeof(struct ext2_inode);
       pread(fd, &inode, sizeof(struct ext2_inode), offset);
