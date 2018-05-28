@@ -282,12 +282,15 @@ void indirectBlocks(int fd) {
       else if (S_ISDIR(inode.i_mode))
         ftype = 'd';
 
+      int doubleInitOffset = (blockSize/4)+EXT2_IND_BLOCK;
+      int tripleInitOffset = (int)pow((blockSize/4),2)+doubleInitOffset;
+
       if (inode.i_block[12] != 0)
-        recursiveScan(inode.i_block[12], i, 1, 1, 12, fd);
+        recursiveScan(inode.i_block[12], i, 1, 1, EXT2_IND_BLOCK, fd);
       if (inode.i_block[13] != 0)
-        recursiveScan(inode.i_block[13], i, 1, 2, 268, fd);
+        recursiveScan(inode.i_block[13], i, 1, 2, doubleInitOffset, fd);
       if (inode.i_block[14] != 0)
-        recursiveScan(inode.i_block[14], i, 1, 3, 65804, fd);
+        recursiveScan(inode.i_block[14], i, 1, 3, tripleInitOffset, fd);
     }
   }
 }
