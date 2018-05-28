@@ -250,13 +250,14 @@ void recursiveScan(__u32 blockid, __u32 inodenum, int currLevel, int goalLevel, 
   __u32 i;
   for (i = 0; i < blockSize/4; i++) {
     if (dataArr[i] != 0) {
+      int incOffset = (int)(i*pow(blockSize/4, goalLevel-currLevel));
       printf("INDIRECT,%d,%d,%d,%d,%d\n",
         inodenum,
         (goalLevel-currLevel)+1,
-        logicalOffset + (int)(i*pow(256, goalLevel-currLevel)),
+        logicalOffset + incOffset,
         blockid,
         dataArr[i]);
-      recursiveScan(dataArr[i], inodenum, currLevel+1, goalLevel, logicalOffset + (int)(i*pow(256, goalLevel-currLevel)), fd);
+      recursiveScan(dataArr[i], inodenum, currLevel+1, goalLevel, logicalOffset + incOffset, fd);
     }
   }
   return;
