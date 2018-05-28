@@ -178,7 +178,7 @@ void inodeSummary(int fd) {
   __u32 g;
   for ( g = 0; g < numGroups; g++) {
     struct ext2_group_desc *group = &blockgroups[g];
-    
+
     __u32 i;
     for ( i = 2; i < superblock.s_inodes_count; i++) {
       struct ext2_inode inode;
@@ -253,11 +253,10 @@ void recursiveScan(__u32 blockid, __u32 inodenum, int currLevel, int goalLevel, 
       printf("INDIRECT,%d,%d,%d,%d,%d\n",
         inodenum,
         (goalLevel-currLevel)+1,
-        logicalOffset,
+        logicalOffset + (int)(i*pow(256, goalLevel-currLevel)),
         blockid,
         dataArr[i]);
-      logicalOffset++;
-      recursiveScan(dataArr[i], inodenum, currLevel+1, goalLevel, logicalOffset, fd);
+      recursiveScan(dataArr[i], inodenum, currLevel+1, goalLevel, logicalOffset + (int)(i*pow(256, goalLevel-currLevel)), fd);
     }
   }
   return;
