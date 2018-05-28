@@ -228,6 +228,9 @@ void inodeSummary(int fd) {
 	    printf(",%d", inode.i_block[b]);
 	  }
 	}
+	else if (ftype == 's') {
+	  printf(",%d", inode.i_block[0]);
+	}
 
 	printf("\n");
       }
