@@ -152,10 +152,11 @@ void direEntries(int fd) {
       if ( (inode.i_mode & 0x4000) == 0x4000 ){
 	unsigned char* currblock = malloc(blockSize);
 	pread(fd, currblock, blockSize, BLOCK_OFFSET(inode.i_block[0]));
+	__u32 x = 1;
 	__u32 nbytes = 0;
 	struct ext2_dir_entry *dentry = (struct ext2_dir_entry *) currblock;
 	if (dentry->inode != 0) {
-	  while (nbytes < 512){//  inode.i_size) { ///TODO: i_size
+	  while (nbytes <  inode.i_size) {
 	    char filename[EXT2_NAME_LEN + 1];
 	    memcpy(filename, dentry->name, dentry->name_len);
 	    filename[dentry->name_len] = '\0';
@@ -163,6 +164,17 @@ void direEntries(int fd) {
 	    printf("%u,%u,%u,%u,'%s'\n",nbytes,dentry->inode, dentry->rec_len, dentry->name_len, filename);
 	    nbytes += dentry->rec_len;
 	    dentry = (void *) dentry + dentry->rec_len;
+	    
+	    if (nbytes >= (512*x) && nbytes != 0) {
+	      //currblock = malloc(blockSize);
+	      pread(fd, currblock, blockSize, BLOCK_OFFSET(inode.i_block[x]));
+	      dentry =  (struct ext2_dir_entry *) currblock;
+	      if ( dentry->inode == 0 )
+		break;
+	      x++;
+	      if ( x > inode.i_blocks/(2<<superblock.s_log_block_size) ) 
+		break;
+	    }
 	  }
 	}
 	free(currblock);
