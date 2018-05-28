@@ -60,8 +60,7 @@ void superblockSummary(int fd) {
 void groupSummary(int fd) {
   const __u32 superblockSize = sizeof(struct ext2_super_block);
   __u32 bgtable_blockno = (1023+superblockSize) / blockSize + 1;
-  //  const __u32 offset = bgtable_blockno * blockSize;
-  const __u32 offset = BLOCK_OFFSET(bgtable_blockno);
+  const off_t offset = BLOCK_OFFSET(bgtable_blockno);
   __u32 numgroups = 1 + (superblock.s_blocks_count-1) / superblock.s_blocks_per_group;
 
   unsigned int gdesc_size = sizeof(struct ext2_group_desc);
@@ -139,6 +138,7 @@ void recursiveScanDir(__u32 blockid, __u32 inodenum, int currLevel, int goalLeve
     return;
 
   __u32 dataArr[blockSize/4];
+  memset(dataArr, 0,sizeof(__u32) * blockSize/4);
   pread(fd, &dataArr, blockSize, BLOCK_OFFSET(blockid));
   __u32 i;
   for (i = 0; i < blockSize/4; i++) {
@@ -146,14 +146,14 @@ void recursiveScanDir(__u32 blockid, __u32 inodenum, int currLevel, int goalLeve
       recursiveScanDir(dataArr[i], inodenum, currLevel+1, goalLevel, inode, fd, size);
       struct ext2_dir_entry *entry;
       unsigned char block[blockSize];
-
+      memset(block, 0,sizeof(unsigned char) * blockSize);
       pread(fd, block, blockSize, BLOCK_OFFSET(dataArr[i]));
       entry = (struct ext2_dir_entry *) block;
 
       while((size < inode->i_size) && entry->file_type) {
         char file_name[EXT2_NAME_LEN+1];
         memcpy(file_name, entry->name, entry->name_len);
-        file_name[entry->name_len] = 0;
+        file_name[entry->name_len] = '\0';
 
         if (entry->inode != 0) {
       	  printf("DIRENT,%d,%d,%d,%d,%d,'%s'\n",
@@ -190,11 +190,13 @@ void direEntries(int fd) {
       pread(fd, &inode, sizeof(struct ext2_inode), BLOCK_OFFSET(blockno) + j * sizeof(struct ext2_inode));
       if ( (inode.i_mode & 0x4000) == 0x4000 ){
         unsigned char block[blockSize];
+	memset(block, 0,sizeof(unsigned char) * blockSize);
         struct ext2_dir_entry* entry;
-        unsigned int size = 0;
+        __u32 size = 0;
 
-        for (int k = 0; k < EXT2_NDIR_BLOCKS; k++) {
-          off_t offset = 1024 + (inode.i_block[k] - 1) * blockSize;
+	int k;
+        for (k = 0; k < EXT2_NDIR_BLOCKS; k++) {
+          const off_t offset = 1024 + (inode.i_block[k] - 1) * blockSize;
           pread(fd, block, blockSize, offset);
 
           entry = (struct ext2_dir_entry*) block;
@@ -202,7 +204,7 @@ void direEntries(int fd) {
           while ((size < inode.i_size) && entry->file_type) {
             char file_name[EXT2_NAME_LEN+1];
             memcpy(file_name, entry->name, entry->name_len);
-            file_name[entry->name_len] = 0;
+            file_name[entry->name_len] = '\0';
 
             if (entry->inode != 0) {
       	      printf("DIRENT,%d,%d,%d,%d,%d,'%s'\n",
@@ -336,7 +338,7 @@ void indirectBlocks(int fd) {
     __u32 i;
     for ( i = 2; i < superblock.s_inodes_count; i++) {
       struct ext2_inode inode;
-      off_t offset = BLOCK_OFFSET(group->bg_inode_table) + (i-1) * sizeof(struct ext2_inode);
+      const off_t offset = BLOCK_OFFSET(group->bg_inode_table) + (i-1) * sizeof(struct ext2_inode);
       pread(fd, &inode, sizeof(struct ext2_inode), offset);
 
       // Determine file type
@@ -347,8 +349,8 @@ void indirectBlocks(int fd) {
         ftype = 'd';
 
       if (ftype != '?') {
-	int doubleInitOffset = (blockSize/4)+EXT2_IND_BLOCK;
-	int tripleInitOffset = (int)pow((blockSize/4),2)+doubleInitOffset;
+	const int doubleInitOffset = (blockSize/4)+EXT2_IND_BLOCK;
+	const int tripleInitOffset = (int)pow((blockSize/4),2)+doubleInitOffset;
 
 	if (inode.i_block[12] != 0)
 	  recursiveScan(inode.i_block[12], i, 1, 1, EXT2_IND_BLOCK, fd);
