@@ -138,7 +138,7 @@ void recursiveScanDir(__u32 blockid, __u32 inodenum, int currLevel, int goalLeve
     return;
 
   __u32 dataArr[blockSize/4];
-  memset(dataArr, 0,sizeof(__u32) * blockSize/4);
+  //memset(dataArr, 0,sizeof(__u32) * blockSize/4);
   pread(fd, &dataArr, blockSize, BLOCK_OFFSET(blockid));
   __u32 i;
   for (i = 0; i < blockSize/4; i++) {
@@ -146,7 +146,7 @@ void recursiveScanDir(__u32 blockid, __u32 inodenum, int currLevel, int goalLeve
       recursiveScanDir(dataArr[i], inodenum, currLevel+1, goalLevel, inode, fd, size);
       struct ext2_dir_entry *entry;
       unsigned char block[blockSize];
-      memset(block, 0,sizeof(unsigned char) * blockSize);
+      //memset(block, 0,sizeof(unsigned char) * blockSize);
       pread(fd, block, blockSize, BLOCK_OFFSET(dataArr[i]));
       entry = (struct ext2_dir_entry *) block;
 
@@ -190,7 +190,7 @@ void direEntries(int fd) {
       pread(fd, &inode, sizeof(struct ext2_inode), BLOCK_OFFSET(blockno) + j * sizeof(struct ext2_inode));
       if ( (inode.i_mode & 0x4000) == 0x4000 ){
         unsigned char block[blockSize];
-	memset(block, 0,sizeof(unsigned char) * blockSize);
+	//memset(block, 0,sizeof(unsigned char) * blockSize);
         struct ext2_dir_entry* entry;
         __u32 size = 0;
 
