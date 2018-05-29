@@ -19,4 +19,7 @@ dist:
 clean:
 	rm -f $(OBJECTS) $(TARBALL)
 
+check: default
+	sh trivialtest.sh
+
 .PHONY: default dist clean
