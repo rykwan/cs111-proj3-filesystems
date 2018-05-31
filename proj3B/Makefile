@@ -15,7 +15,7 @@ lab3b: lab3b.py
 	chmod +x lab3b
 
 dist:
-	tar -czf $(TARBALL) README $(SOURCES) Makefile lab3b
+	tar -czf $(TARBALL) README $(SOURCES) Makefile
 
 clean:
 	rm -f $(TARBALL) $(OBJECTS)
