@@ -4,7 +4,7 @@ ID: 604788993,304783893
 
 
 Files:
-lab3b.c - C source file that analyzes file system summary and reports 
+lab3b.py - python script that analyzes file system summary and reports 
 	inconsistencies
 Makefile - contains the following targets:
   - default: compiles program to produce lab3a executable

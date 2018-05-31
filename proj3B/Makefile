@@ -2,21 +2,21 @@
 #EMAIL: raykwan@g.ucla.edu,san2heg@gmail.com
 #ID: 304783893,604788993
 
-CC = gcc
-CFLAGS = -Wall -Wextra -g -lm
 OBJECTS = lab3b
-SOURCES = lab3b.c
+SOURCES = lab3b.py
 TARBALL = lab3b-304783893.tar.gz
 
 default: $(OBJECTS)
 
-lab3b: lab3b.c
-	$(CC) $(CFLAGS) lab3b.c -o $@
+lab3b: lab3b.py
+	chmod +x lab3b.py
+	ln -s lab3b.py lab3b
+	chmod +x lab3b
 
 dist:
-	tar -czf $(TARBALL) README $(SOURCES) Makefile ext2_fs.h
+	tar -czf $(TARBALL) README $(SOURCES) Makefile lab3b
 
 clean:
-	rm -f $(OBJECTS) $(TARBALL)
+	rm -f $(TARBALL) $(OBJECTS)
 
 .PHONY: default dist clean
