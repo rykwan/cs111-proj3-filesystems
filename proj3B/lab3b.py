@@ -97,6 +97,7 @@ class Inode:
         self.atime = list[9]
         self.fileSize = list[10]
         self.numBlocks = list[11]
+        self.blockPointers = list[12:]
 
 class DirectoryEntry:
     def __init__(self, line):
@@ -153,9 +154,37 @@ class FileSystem:
             else:
                 sys.stderr.write("Unknown record name: " + name + "\n")
 
+def inodeAudit(fs):
+    inodes = {}
+    allocList = {}
+    freeList = {}
+
+    for ai in fs.inodes:
+        allocList[ai.inodeNum] = True
+
+    for fi in fs.freeInodes:
+        freeList[fi.numFreeInode] = True
+
+    for i in range(1, fs.superblock.numInodes):
+        if i in allocList:
+            inodes[i] = True
+        else:
+            inodes[i] = False
+
+    for inodeNum in allocList:
+        if inodeNum in freeList:
+            sys.stdout.write("ALLOCATED INODE " + str(inodeNum) + " ON FREELIST\n")
+
+    for inodeNum in inodes:
+        if (inodes[inodeNum] == False and inodeNum not in freeList):
+            sys.stdout.write("UNALLOCATED INODE " + str(inodeNum) + " NOT ON FREELIST\n")
+
 def main():
     csvfile = getFileArg(sys.argv)
+
     fs = FileSystem(csvfile)
+    inodeAudit(fs)
+
     csvfile.close()
     exit(0)
 
