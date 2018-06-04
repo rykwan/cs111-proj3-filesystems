@@ -14,14 +14,21 @@ def listConvert(str):
     return [tryIntConvert(a) for a in str.split(',')]
 
 def initError(className, line):
-    sys.stderr.write("Error initializing " + className + " line: " + line)
+    sys.stderr.write("Error initializing " + className + " line: " + line + "\n")
 
-class FileSystem:
-    def __init__(self, fsSummary):
-        self.populate(fsSummary)
+def getFileArg(args): # checks number of args and returns opened file
+    usage_msg = "./lab3b CSV_FILE\n"
+    if len(args) != 2:
+        sys.stderr.write("Wrong number of arguments.\n")
+        sys.stderr.write(usage_msg)
+        exit(1)
 
-    def populate(self, summary):
-
+    filename = args[1]
+    try:
+        return open(filename, "r")
+    except IOError:
+        sys.stderr.write("Error: could not open file '%s'\n" %filename)
+        exit(1)
 
 class Superblock:
     def __init__(self, line):
@@ -91,7 +98,7 @@ class Inode:
         self.fileSize = list[10]
         self.numBlocks = list[11]
 
-class Directory:
+class DirectoryEntry:
     def __init__(self, line):
         self.name = "DIRENT"
         list = listConvert(line)
@@ -118,23 +125,37 @@ class IndirectBlock:
         self.indirBlockNum = list[4]
         self.refBlockNum = list[5]
 
-def getFileArg(args): # checks number of args and returns opened file
-    usage_msg = "./lab3b CSV_FILE\n"
-    if len(args) != 2:
-        sys.stderr.write("Wrong number of arguments.\n")
-        sys.stderr.write(usage_msg)
-        exit(1)
-
-    filename = args[1]
-    try:
-        return open(filename, "r")
-    except IOError:
-        sys.stderr.write("Error: could not open file '%s'\n" %filename)
-        exit(1)
+class FileSystem:
+    def __init__(self, csvFile):
+        self.groups = []
+        self.freeBlocks = []
+        self.freeInodes = []
+        self.inodes = []
+        self.dirEntries = []
+        self.indirectBlocks = []
+        fsLines = [l.rstrip('\n') for l in csvFile]
+        for line in fsLines:
+            name = line.split(',')[0]
+            if name == "SUPERBLOCK":
+                self.superblock = Superblock(line)
+            elif name == "GROUP":
+                self.groups.append(Group(line))
+            elif name == "BFREE":
+                self.freeBlocks.append(FreeBlock(line))
+            elif name == "IFREE":
+                self.freeInodes.append(FreeInode(line))
+            elif name == "INODE":
+                self.inodes.append(Inode(line))
+            elif name == "DIRENT":
+                self.dirEntries.append(DirectoryEntry(line))
+            elif name == "INDIRECT":
+                self.indirectBlocks.append(IndirectBlock(line))
+            else:
+                sys.stderr.write("Unknown record name: " + name + "\n")
 
 def main():
     csvfile = getFileArg(sys.argv)
-
+    fs = FileSystem(csvfile)
     csvfile.close()
     exit(0)
 
