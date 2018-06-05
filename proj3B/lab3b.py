@@ -103,7 +103,9 @@ class Inode:
         self.atime = linelist[9]
         self.fileSize = linelist[10]
         self.numBlocks = linelist[11]
-        self.blockPointers = linelist[12:]
+        self.blockPointers = []
+        if self.numBlocks != 0 and self.fileType != 's':
+            self.blockPointers = linelist[12:]
 
 class DirectoryEntry:
     def __init__(self, line):
