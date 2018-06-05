@@ -191,10 +191,11 @@ def inodeAudit(fs):
             sys.stdout.write("UNALLOCATED INODE " + str(inodeNum) + " NOT ON FREELIST\n")
 
 class BlockObject:
-    def __init__(self, blockNum, inoNum, indirection):
+    def __init__(self, blockNum, inoNum, indirection, offset):
         self.blockNum = blockNum
         self.inodeNum = inoNum
         self.indirection = indirection
+        self.offset = offset
 
 def reportInconsistentBlock(INorREorDU, blockno, indi, inonum, offset): # 0 for invalid, 1 for reserved
     if INorREorDU == 0:
@@ -203,12 +204,14 @@ def reportInconsistentBlock(INorREorDU, blockno, indi, inonum, offset): # 0 for 
         sys.stdout.write("RESERVED ")
     else:
         sys.stdout.write("DUPLICATE ")
-    if indi == 1:  #TODO: how to get logical offset
-        sys.stdout.write("INDIRECT ")
-    elif indi == 2:
+    
+    if indi == 2:
         sys.stdout.write("DOUBLE ")
     elif indi == 3:
         sys.stdout.write("TRIPLE ")
+    if indi >= 1:  #TODO: how to get logical offset
+        sys.stdout.write("INDIRECT ")
+
     sys.stdout.write("BLOCK %d IN INODE %d AT OFFSET %d\n" % (blockno, inonum, offset) )
 
 def blockAudit(fs):
@@ -233,7 +236,7 @@ def blockAudit(fs):
 
             if bp in allBlocks:
                 if allBlocks[bp] == None:
-                    sys.stdout.write("ALLOCATED %d ON FREELIST\n" % bp)
+                    sys.stdout.write("ALLOCATED BLOCK %d ON FREELIST\n" % bp)
                     allBlocks[bp] = []
 
             if bp < 0 or bp > fs.superblock.numBlocks:
@@ -241,21 +244,21 @@ def blockAudit(fs):
             elif bp == fs.groups[0].blockBitmapBlockNum or bp == fs.groups[0].nodeBitmapBlockNum or (bp != 0 and bp < int(fs.groups[0].firstInodeBlockNum)):
                 reportInconsistentBlock(1, bp, indirection, ino.inodeNum, offset)
             elif bp != 0:
-                allBlocks.setdefault(bp,[]).append(BlockObject(bp, ino.inodeNum, indirection))
+                allBlocks.setdefault(bp,[]).append(BlockObject(bp, ino.inodeNum, indirection, offset))
 
             offset+=1
 
     for indiBlock in fs.indirectBlocks:
         if indiBlock.refBlockNum in allBlocks:
             if allBlocks[indiBlock.refBlockNum] == None:
-                sys.stdout.write("ALLOCATED %d ON FREELIST\n" % indiBlock.refBlockNum)
+                sys.stdout.write("ALLOCATED BLOCK %d ON FREELIST\n" % indiBlock.refBlockNum)
                 allBlocks[indiBlock.refBlockNum] = []
         if indiBlock.refBlockNum < 0 or indiBlock.refBlockNum > fs.superblock.numBlocks:
                 reportInconsistentBlock(0, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum, indiBlock.logicalBlockOffset)
         elif indiBlock.refBlockNum == fs.groups[0].blockBitmapBlockNum or indiBlock.refBlockNum == fs.groups[0].nodeBitmapBlockNum or (indiBlock.refBlockNum != 0 and indiBlock.refBlockNum < int(fs.groups[0].firstInodeBlockNum)):
                 reportInconsistentBlock(1, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum, indiBlock.logicalBlockOffset)
         elif indiBlock.refBlockNum != 0:
-                allBlocks.setdefault(indiBlock.refBlockNum,[]).append(BlockObject(indiBlock.refBlockNum, indiBlock.inodeNum, indiBlock.indirectionLevel))
+                allBlocks.setdefault(indiBlock.refBlockNum,[]).append(BlockObject(indiBlock.refBlockNum, indiBlock.inodeNum, indiBlock.indirectionLevel, offset))
 
     for b in range(int(startingBlock),fs.superblock.numBlocks):
         if allBlocks[b] == None:
@@ -264,7 +267,7 @@ def blockAudit(fs):
             sys.stdout.write("UNREFERENCED BLOCK %d\n" % b)
         elif len(allBlocks[b]) > 1:
             for block in allBlocks[b]:
-                reportInconsistentBlock(2, block.blockNum, block.indirection, block.inodeNum)
+                reportInconsistentBlock(2, block.blockNum, block.indirection, block.inodeNum, block.offset)
 
 
 
