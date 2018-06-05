@@ -221,8 +221,8 @@ def reportInconsistentBlock(INorREorDU, blockno, indi, inonum, offset): # 0 for 
 
 def blockAudit(fs):
     startingBlock = fs.groups[0].firstInodeBlockNum + (fs.superblock.nodeSize * fs.groups[0].numInodes) / fs.superblock.blockSize
-
-    allBlocks = dict((b, []) for b in range(int(startingBlock),fs.superblock.numBlocks) )
+    startingBlock = int(startingBlock)
+    allBlocks = dict((b, []) for b in range(startingBlock,fs.superblock.numBlocks) )
 
     for frb in fs.freeBlocks:
         allBlocks[frb.numFreeBlock] = None # set free blocks to None
@@ -246,7 +246,7 @@ def blockAudit(fs):
 
             if bp < 0 or bp > fs.superblock.numBlocks:
                 reportInconsistentBlock(0, bp, indirection, ino.inodeNum, offset)
-            elif bp == fs.groups[0].blockBitmapBlockNum or bp == fs.groups[0].nodeBitmapBlockNum or (bp != 0 and bp < int(fs.groups[0].firstInodeBlockNum)):
+            elif bp == fs.groups[0].blockBitmapBlockNum or bp == fs.groups[0].nodeBitmapBlockNum or (bp != 0 and bp < startingBlock):
                 reportInconsistentBlock(1, bp, indirection, ino.inodeNum, offset)
             elif bp != 0:
                 allBlocks.setdefault(bp,[]).append(BlockObject(bp, ino.inodeNum, indirection, offset))
@@ -260,12 +260,12 @@ def blockAudit(fs):
                 allBlocks[indiBlock.refBlockNum] = []
         if indiBlock.refBlockNum < 0 or indiBlock.refBlockNum > fs.superblock.numBlocks:
                 reportInconsistentBlock(0, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum, indiBlock.logicalBlockOffset)
-        elif indiBlock.refBlockNum == fs.groups[0].blockBitmapBlockNum or indiBlock.refBlockNum == fs.groups[0].nodeBitmapBlockNum or (indiBlock.refBlockNum != 0 and indiBlock.refBlockNum < int(fs.groups[0].firstInodeBlockNum)):
+        elif indiBlock.refBlockNum == fs.groups[0].blockBitmapBlockNum or indiBlock.refBlockNum == fs.groups[0].nodeBitmapBlockNum or (indiBlock.refBlockNum != 0 and indiBlock.refBlockNum < startingBlock):
                 reportInconsistentBlock(1, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum, indiBlock.logicalBlockOffset)
         elif indiBlock.refBlockNum != 0:
                 allBlocks.setdefault(indiBlock.refBlockNum,[]).append(BlockObject(indiBlock.refBlockNum, indiBlock.inodeNum, indiBlock.indirectionLevel, offset))
 
-    for b in range(int(startingBlock),fs.superblock.numBlocks):
+    for b in range(startingBlock,fs.superblock.numBlocks):
         if allBlocks[b] == None:
             continue
         if len(allBlocks[b]) == 0:
