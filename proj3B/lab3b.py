@@ -213,7 +213,9 @@ def reportInconsistentBlock(INorREorDU, blockno, indi, inonum): # 0 for invalid,
     sys.stdout.write("BLOCK %d IN INODE %d AT OFFSET %d\n" % (blockno, inonum, offset) )
 
 def blockAudit(fs):
-    allBlocks = dict((b, []) for b in range(1,fs.superblock.numBlocks+1) )
+    startingBlock = fs.groups[0].firstInodeBlockNum + (fs.superblock.nodeSize * fs.groups[0].numInodes) / fs.superblock.blockSize
+
+    allBlocks = dict((b, []) for b in range(int(startingBlock),fs.superblock.numBlocks) )
 
     for frb in fs.freeBlocks:
         allBlocks[frb.numFreeBlock] = None # set free blocks to None
@@ -239,13 +241,13 @@ def blockAudit(fs):
                 sys.stdout.write("ALLOCATED %d ON FREELIST\n" % indiBlock.refBlockNum)
                 allBlocks[indiBlock.refBlockNum] = []
         if indiBlock.refBlockNum < 0 or indiBlock.refBlockNum > fs.superblock.numBlocks:
-                reportInconsistentBlock(0, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum)
+            reportInconsistentBlock(0, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum)
         elif indiBlock.refBlockNum == fs.groups[0].blockBitmapBlockNum or indiBlock.refBlockNum == fs.groups[0].nodeBitmapBlockNum or (indiBlock.refBlockNum != 0 and indiBlock.refBlockNum < int(fs.groups[0].firstInodeBlockNum)):
-                reportInconsistentBlock(1, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum)
+            reportInconsistentBlock(1, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum)
         elif indiBlock.refBlockNum != 0:
-                allBlocks.setdefault(indiBlock.refBlockNum,[]).append(BlockObject(indiBlock.refBlockNum, indiBlock.inodeNum, indiBlock.indirectionLevel)) 
+            allBlocks.setdefault(indiBlock.refBlockNum,[]).append(BlockObject(indiBlock.refBlockNum, indiBlock.inodeNum, indiBlock.indirectionLevel)) 
 
-    for b in range(1,fs.superblock.numBlocks+1):
+    for b in range(int(startingBlock),fs.superblock.numBlocks):
         if allBlocks[b] == None:
             continue
         if len(allBlocks[b]) == 0:
