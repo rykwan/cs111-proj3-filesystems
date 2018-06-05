@@ -196,17 +196,19 @@ class BlockObject:
         self.inodeNum = inoNum
         self.indirection = indirection
 
-def printInvalidOrReservedBlock(INorRE, blockno, idx, inonum): # 0 for invalid, 1 for reserved
+def reportInconsistentBlock(INorREorDU, blockno, indi, inonum): # 0 for invalid, 1 for reserved
     offset = 0
-    if INorRE == 0:
+    if INorREorDU == 0:
         sys.stdout.write("INVALID ")
-    else:
+    elif INorREorDU == 1:
         sys.stdout.write("RESERVED ")
-    if idx == 12:  #TODO: how to get logical offset
+    else:
+        sys.stdout.write("DUPLICATE ")
+    if indi == 1:  #TODO: how to get logical offset
         sys.stdout.write("INDIRECT ")
-    elif idx == 13:
+    elif indi == 2:
         sys.stdout.write("DOUBLE ")
-    elif idx == 14:
+    elif indi == 3:
         sys.stdout.write("TRIPLE ")
     sys.stdout.write("BLOCK %d IN INODE %d AT OFFSET %d\n" % (blockno, inonum, offset) )
 
@@ -225,14 +227,33 @@ def blockAudit(fs):
                     allBlocks[bp] = []
 
             if bp < 0 or bp > fs.superblock.numBlocks:
-                printInvalidOrReservedBlock(0, bp, idx, ino.inodeNum)
+                reportInconsistentBlock(0, bp, indirection, ino.inodeNum)
             elif bp == fs.groups[0].blockBitmapBlockNum or bp == fs.groups[0].nodeBitmapBlockNum or (bp != 0 and bp < int(fs.groups[0].firstInodeBlockNum)):
-                printInvalidOrReservedBlock(1, bp, idx, ino.inodeNum)
+                reportInconsistentBlock(1, bp, indirection, ino.inodeNum)
             elif bp != 0:
                 allBlocks.setdefault(bp,[]).append(BlockObject(bp, ino.inodeNum, indirection))
 
-   # for b in range(1,fs.superblock.numBlocks+1):
-   #     if allBlocks[b] 
+    for indiBlock in fs.indirectBlocks:
+        if indiBlock.refBlockNum in allBlocks:
+            if allBlocks[indiBlock.refBlockNum] == None:
+                sys.stdout.write("ALLOCATED %d ON FREELIST\n" % indiBlock.refBlockNum)
+                allBlocks[indiBlock.refBlockNum] = []
+        if indiBlock.refBlockNum < 0 or indiBlock.refBlockNum > fs.superblock.numBlocks:
+                reportInconsistentBlock(0, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum)
+        elif indiBlock.refBlockNum == fs.groups[0].blockBitmapBlockNum or indiBlock.refBlockNum == fs.groups[0].nodeBitmapBlockNum or (indiBlock.refBlockNum != 0 and indiBlock.refBlockNum < int(fs.groups[0].firstInodeBlockNum)):
+                reportInconsistentBlock(1, indiBlock.refBlockNum, indiBlock.indirectionLevel, indiBlock.inodeNum)
+        elif indiBlock.refBlockNum != 0:
+                allBlocks.setdefault(indiBlock.refBlockNum,[]).append(BlockObject(indiBlock.refBlockNum, indiBlock.inodeNum, indiBlock.indirectionLevel)) 
+
+    for b in range(1,fs.superblock.numBlocks+1):
+        if allBlocks[b] == None:
+            continue
+        if len(allBlocks[b]) == 0:
+            sys.stdout.write("UNREFERENCED BLOCK %d\n" % b)
+        elif len(allBlocks[b]) > 1:
+            for block in allBlocks[b]:
+                reportInconsistentBlock(2, block.blockNum, block.indirection, block.inodeNum)
+
 
 
 
