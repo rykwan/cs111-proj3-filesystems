@@ -1,6 +1,6 @@
 #NAME: Raymond Kwan, Sanketh Hedge
-#EMAIL: raykwan@g.ucla.edu, san2heg@gmail.com
-#ID: 304783893, 604788993
+
+
 
 CC = gcc
 CFLAGS = -Wall -Wextra -g -lm

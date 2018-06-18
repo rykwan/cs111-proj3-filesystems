@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # NAME: Sanketh Hegde,Raymond Kwan
-# EMAIL: shegde20@ucla.edu,raykwan@ucla.edu
-# ID: 604788993,304783893
 
 import sys
 
